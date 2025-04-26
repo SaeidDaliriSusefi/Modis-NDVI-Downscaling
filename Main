@@ -1,1 +1,90 @@
+var country_name =  'Italy'                            
+var region_name = 'Lombardia'  
+var city_name = 'Lecco'
+var time_start = '2020'
+var time_end = '2021'
+
+// Load and filter administrative boundaries
+var city = ee.FeatureCollection("FAO/GAUL_SIMPLIFIED_500m/2015/level2")
+  .filter(ee.Filter.and(
+    ee.Filter.eq('ADM0_NAME', country_name),
+    ee.Filter.eq('ADM1_NAME', region_name),
+    ee.Filter.eq('ADM2_NAME', city_name)
+  ));
+
+
+var landsat = ee.ImageCollection("LANDSAT/LC08/C02/T1_L2")
+.filterBounds(city)
+.filterDate(time_start, time_end)
+.filter(ee.Filter.eq('WRS_PATH', 194))
+.filter(ee.Filter.eq('WRS_ROW', 28))
+.filter(ee.Filter.lt('CLOUD_COVER',10))
+.map(function(img){
+  var gain = ee.Number(img.get('REFLECTANCE_MULT_BAND_3'))
+  var offset = ee.Number(img.get('REFLECTANCE_ADD_BAND_3'))
+  var ms = img.select('SR_B.*').multiply(gain).add(offset)
+  var ndvi = ms.normalizedDifference(['SR_B5','SR_B4']).rename('NDVI')
+  return ndvi
+  .copyProperties(img, ['system:time_start', 'system:time_end'])
+  })
+
+print('landsat data:',landsat)
+
+
+//print(landsat.aggregate_array('WRS_PATH').distinct())
+//print(landsat.aggregate_array('WRS_ROW').distinct())
+
+var modis = ee.ImageCollection("MODIS/MOD09GA_006_NDVI")
+.filterDate(time_start, time_end)
+
+print('modis data:',modis)
+
+
+var days = 3
+var mills = ee.Number(days).multiply(1000 * 3600 * 24);
+var filter = ee.Filter.maxDifference(mills, 'system:time_start', null, 'system:time_start', null)
+
+var join = ee.Join.saveAll('modis');
+var join_data = ee.ImageCollection(join.apply(landsat, modis, filter))
+
+var collection = join_data.map(function(img){
+  var images = ee.ImageCollection.fromImages(img.get('modis')).max()
+  return img.addBands(images.rename('modis'))
+  });
+
+print(collection)
+
+
+var model = collection.map(function(img){
+  var cons = ee.Image.constant(1);
+  return img.select('modis').addBands(cons).addBands(img.select('NDVI'))
+  }).reduce(ee.Reducer.linearRegression(2, 1));
+  
+var gain = model.select('coefficients').arrayGet([0,0]);
+var offset = model.select('coefficients').arrayGet([1,0]);
+
+
+
+// Calculate MODIS NDVI predictions for each image in the collection
+var modis30 = modis.map(function(img) {
+  var prediction = img.multiply(gain).add(offset).rename('ndvi30');
+  return img.rename('ndvi500').addBands(prediction)
+  .copyProperties(img, img.propertyNames())
+});
+print(modis30)
+
+  
+var ndvi500m = modis30.select('ndvi500');
+var ndvi30m = modis30.select('ndvi30');
+  
+  
+Map.addLayer(ndvi500m.toBands().clip(city),[],'ndvi_500m',false)  
+Map.addLayer(ndvi30m.toBands().clip(city),[],'ndvi_30m',false)
+
+
+
+// Center the map on the city
+Map.centerObject(city, 9);
+
+
 
