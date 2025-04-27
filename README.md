@@ -1,7 +1,7 @@
 # 🌎 Spatial Downscaling of Modis-NDVI Data with Google Earth Engine, Python & Linear Regression
 This repository provides a complete workflow for processing and spatially downscaling Modes-NDVI satellite data using Google Earth Engine, Python, and Linear Regression machine learning techniques.
 
-The goal is to improve the spatial resolution of Modis-NDVI data from approximately 1 km to 30 m, making it more suitable for local and regional hydrological applications.
+The goal is to improve the spatial resolution of Modis-NDVI data from approximately 500m to 30 m, making it more suitable for local and regional hydrological applications.
 
 
 ## 🛠️ Requirements
