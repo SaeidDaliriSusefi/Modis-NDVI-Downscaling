@@ -1,4 +1,4 @@
-# Modis-NDVI-Downscaling
+# 🌎 Spatial Downscaling of Modis-NDVI Data with Google Earth Engine, Python & Linear Regression
 
 
 ## 📸 Example Outputs
